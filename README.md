@@ -8,13 +8,13 @@ The project integrates real-world environmental data from OpenAQ and NOAA into a
 
 ## Tech Stack
 
- - **Language**: Python (`pandas`, `requests`, `SQLAlchemy`) : ETL, data cleaning, and transformation
- - **Database**: PostgreSQL 16 : Central data warehouse 
- - **APIs**: OpenAQ, NOAA GHCN, NOAA GML CO₂ : Real environmental data sources
- - **Visualization**: Tableau, Power BI : Dashboards and data storytelling
- - **Automation**: Prefect (planned) : Workflow scheduling 
- - **Containerization**: Docker Compose : Local, reproducible setup
- - **Version Control**: GitHub : Collaboration and documentation
+ - **Language**: Python (`pandas`, `requests`, `SQLAlchemy`) | ETL, data cleaning, and transformation
+ - **Database**: PostgreSQL 16 | Central data warehouse 
+ - **APIs**: OpenAQ, NOAA GHCN, NOAA GML CO₂ | Real environmental data sources
+ - **Visualization**: Tableau, Power BI | Dashboards and data storytelling
+ - **Automation**: Prefect (planned) | Workflow scheduling 
+ - **Containerization**: Docker Compose | Local, reproducible setup
+ - **Version Control**: GitHub | Collaboration and documentation
 
 ---
 
