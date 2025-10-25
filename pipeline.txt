@@ -1,0 +1,19 @@
+APIs (OpenAQ, NOAA)
+        ↓
+   src/fetch_*.py
+        ↓
+     data/raw/
+        ↓
+   src/clean_data.py
+        ↓
+     data/cleaned/
+        ↓
+   notebooks/
+        ↓
+     data/final/
+        ↓
+   src/load_to_postgres.py
+        ↓
+ PostgreSQL database (air_quality_assurance)
+        ↓
+ Tableau / Power BI dashboards (live queries)
