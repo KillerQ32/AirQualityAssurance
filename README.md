@@ -67,4 +67,8 @@ This project allows me to:
 
 ---
 
-## Project Structure
+## Data Collection
+
+- Air pollutant data → OpenAQ API
+- Weather data → NOAA CDO (GHCND)
+- CO₂ trend → NOAA GML CSV
