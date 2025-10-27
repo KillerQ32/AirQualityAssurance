@@ -203,7 +203,7 @@ def get_data() -> list:
             "enddate": "2023-12-31",
             "limit": limit,
             "offset": offset,
-            "datatypeid": ["TMAX", "TMIN", "PRCP", "AWND"],  # You can customize this list
+            "datatypeid": ["TMAX", "TMIN", "PRCP", "AWND"],
             "units": "standard"}
     while sum < 1:
         url = f"{BASE_URL}{data_endpoint}"
