@@ -21,7 +21,6 @@ BASE_URL = os.getenv("NCDC_CDO_URL")
 # url info
 headers = {"token": BASE_KEY}
 
-
 """
 Function requests datasets endpoint information
 """
@@ -47,12 +46,16 @@ def get_datasets() -> list:
         #sum +=1
     return all_results
 
+json = get_datasets()
+print(json)
+
 def get_dataset_ids():
     dataset_df = pd.DataFrame(get_datasets())
     id_list = dataset_df["id"].to_list()
     return id_list
 
 id_list = get_dataset_ids()
+print(id_list)
 
 """
 Function requests datacategories endpoint information
