@@ -1,6 +1,8 @@
 import requests
 import pandas as pd
 import os
+import time
+from openpyxl import load_workbook, Workbook
 from dotenv import load_dotenv
 
 load_dotenv()
@@ -43,11 +45,12 @@ def get_datasets() -> list:
         all_results.extend(results)
         print(f"Fetched {len(results)} locations (offset={offset})")
         offset += limit
-        #sum +=1
+        #sum +=1'
     return all_results
 
 json = get_datasets()
-print(json)
+print(pd.DataFrame(json))
+
 
 def get_dataset_ids():
     dataset_df = pd.DataFrame(get_datasets())
@@ -82,6 +85,8 @@ def get_datacategories() -> list:
         #sum +=1
     return all_results
 
+json = get_datacategories()
+print(pd.DataFrame(json))
 """
 Function requests datatypes endpoint information
 """
@@ -104,8 +109,23 @@ def get_datatypes() -> list:
         all_results.extend(results)
         print(f"Fetched {len(results)} locations (offset={offset})")
         offset += limit
+        time.sleep(1)
         #sum +=1
     return all_results
+
+def get_datatypes_ids() -> list:
+    list1 = get_datatypes()
+    df = pd.DataFrame(list1)
+    list1 = df["id"].to_list()
+    return list1
+
+results = get_datatypes()
+print(results)
+print(pd.DataFrame(results))
+excelfile = pd.DataFrame(results)
+excelfile.to_excel("datatypes.xlsx", sheet_name="Sheet1")
+list1 = get_datatypes_ids()
+print(pd.DataFrame(list1))
 
 """
 Function requests locationcategories endpoint information
@@ -140,11 +160,9 @@ def get_locations() -> list:
     offset = 1
     limit = 1000
     all_results = []
-    sum = 0
-    params = {"limit": 1000, "offset": 1}
     url = f"{BASE_URL}{locations}"
-    while sum < 5:
-        params = {"limit": limit, "offset": offset}
+    while True:
+        params = {"limit": limit, "offset": offset, "locationcategoryid": "CITY"}
         r = requests.get(url, headers=headers, params=params)
         r.raise_for_status()
         data = r.json()
@@ -154,17 +172,30 @@ def get_locations() -> list:
         all_results.extend(results)
         print(f"Fetched {len(results)} locations (offset={offset})")
         offset += limit
-        sum +=1
+        time.sleep(.2)
+        if len(results) < limit:
+            break
     return all_results
 
+results = get_locations()
+df = pd.DataFrame(results)
+df.to_excel("stations.xlsx", sheet_name="station")
 
 def get_location_ids():
     location_df = pd.DataFrame(get_locations())
     id_list = location_df["id"].to_list()
     return id_list
 
+def get_location_names():
+    location_df = pd.DataFrame(get_locations())
+    return location_df["name"].to_list()
+    
+list2 = get_location_names()
+print(list2)
+
 location_id_list = get_location_ids()
 print(location_id_list)
+
 """
 Function requests stations endpoint information
 """
@@ -174,10 +205,9 @@ def get_stations() -> list:
     limit = 1000
     all_results = []
     #sum = 0
-    params = {"limit": 1000, "offset": 1}
     while True:
         url = f"{BASE_URL}{stations}"
-        params = {"limit": limit, "offset": offset}
+        params = {"limit": 1000, "offset": 1, "locationid": "CITY:US240002", "datasetid": "GSOY"}
         r = requests.get(url, headers=headers, params=params)
         r.raise_for_status()
         data = r.json()
@@ -187,30 +217,34 @@ def get_stations() -> list:
         all_results.extend(results)
         print(f"Fetched {len(results)} stations (offset={offset})")
         offset += limit
+        time.sleep(.3)
         #sum +=1
+        if len(results) < limit:
+            break
     return all_results
+
+results = get_stations()
+print(pd.DataFrame(results))
 
 """
 Function requests data endpoint information
 """
-def get_data() -> list:
+def get_data(dataset_id: str, date: str, station_id: str, datatype_id: list[str]) -> list:
 
     offset = 1
     limit = 1000
     all_results = []
-    sum = 0
-    params1 = {
-            "datasetid": id_list[0],
-            "locationid": location_id_list[0],
-            "startdate": "2023-01-01",
-            "enddate": "2023-12-31",
+    while True:
+        url = f"{BASE_URL}{data_endpoint}"
+        params1 = {
+            "datasetid": dataset_id,
+            "stationid": station_id,
+            "startdate": f"{date}-01-01",
+            "enddate": f"{date}-12-31",
             "limit": limit,
             "offset": offset,
-            "datatypeid": ["TMAX", "TMIN", "PRCP", "AWND"],
+            "datatypeid": datatype_id,
             "units": "standard"}
-    while sum < 1:
-        url = f"{BASE_URL}{data_endpoint}"
-        params = {"limit": limit, "offset": offset}
         r = requests.get(url, headers=headers, params=params1)
         r.raise_for_status()
         data = r.json()
@@ -220,13 +254,25 @@ def get_data() -> list:
         all_results.extend(results)
         print(f"Fetched {len(results)} data (offset={offset})")
         offset += limit
-        sum +=1
+        if len(results) < limit:
+            break
+        time.sleep(0.2)
     return all_results
 
 
 print(id_list)
+def get_data_year():
+    i = 1999
+    while i <= 2024:
+        results = get_data("GHCND", str(i), "GHCND:USW00093784", ["TMAX", "TMIN", "PRCP"])
+        #print(results)
+        df = pd.DataFrame(results)
+        #print(df)
+        with pd.ExcelWriter("dailyAvgMarylandScienceCenter.xlsx", engine='openpyxl', mode='a', if_sheet_exists="replace") as writer:
+            # Add new sheet (e.g., 'Sheet3')
+            df.to_excel(writer, sheet_name=str(i))
 
-results = get_data()
-print(results)
-df = pd.DataFrame(results)
-print(df["datatype"])
+        #df.to_excel(f"dailyAvgMarylandScienceCenter.xlsx", sheet_name=str(i))
+        print("fetched year", i)
+        i += 1
+get_data_year()
