@@ -44,6 +44,7 @@ def fetch_all(url, params=None, limit=1000, timeout=60, max_retries=6):
         for attempt in range(max_retries):
             r = requests.get(url, headers=headers, params=params, timeout=timeout)
 
+            # handle rate limit (429)
             if r.status_code == 429:
                 wait_s = _to_int(r.headers.get("Retry-After"), 20) + 2
                 print(f"Rate limited. Sleeping {wait_s}s...")
@@ -149,19 +150,25 @@ def get_data_lvls_agg(data_type: str, aggregation: str, date_from: str, date_to:
                         "location_name": loc.name,
                         "parameter": s.parameter.name,
                         "parameter_units": s.parameter.units,
-                        "value": r["value"]
+                        "value": r["value"],
+                        "min": r["summary"]["q02"],
+                        "q02": r["summary"]["q02"],
+                        "q25": r["summary"]["q25"],
+                        "median": r["summary"]["median"],
+                        "q75": r["summary"]["q75"],
+                        "q98": r["summary"]["q98"],
+                        "max": r["summary"]["max"],
+                        "avg": r["summary"]["avg"]
                     }
 
                     rows.append(data)
 
     return rows
 
-def main():
-    rows = get_data_lvls_agg(PM25, YEARLY, "2018-01-01", "2019-01-01")
-    df = pd.DataFrame(rows)
-    print(df.head())
-    print("rows:", len(df))
-    df.to_excel("pm25year.xlsx", index=False)
-    client.close()
+rows = get_data_lvls_agg(PM25, YEARLY, "2018-01-01", "2019-01-01")
+df = pd.DataFrame(rows)
+print(df.head())
+print("rows:", len(df))
+df.to_excel("pm25year.xlsx", index=False)
 
-main()
+client.close()
