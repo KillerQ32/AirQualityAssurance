@@ -2,6 +2,7 @@ import os, requests, time
 import pandas as pd
 from dotenv import load_dotenv
 from openaq import OpenAQ
+from datetime import datetime
 
 load_dotenv()
 
@@ -18,6 +19,9 @@ O3 = "o3"
 NO2 = "no2"
 SO2 = "so2"
 CO = "co"
+NOX = "nox"
+PM10 = "pm10"
+PM1 = "pm1"
 
 #TIME BASED AGGREGATION
 DAILY = "/days"
@@ -112,6 +116,20 @@ def get_location_details():
         location_list.append(location_dict)
     return location_list
 
+def get_sensor_details():
+    sensor_list = []
+    for loc in all_locations:
+        for s in (loc.sensors or []):
+            sensor_dict = {
+                "id": s.id,
+                "name": s.name,
+                "location_id": loc.id,
+                "location_name": loc.name,
+                "parameter": s.parameter.name
+            }
+            sensor_list.append(sensor_dict)
+    return sensor_list
+
 def get_data_lvls(data_type: str, date_from: str, date_to: str):
     rows = []
 
@@ -177,8 +195,8 @@ def get_data_lvls_agg(data_type: str, aggregation: str, date_from: str, date_to:
                         "max": r["summary"]["max"],
                         "avg": r["summary"]["avg"],
                         "sd": r["summary"]["sd"],
-                        "date_from": r["coverage"]["datetimeFrom"]["local"],
-                        "date_to": r["coverage"]["datetimeTo"]["local"]
+                        "date_from": datetime.fromisoformat(r["coverage"]["datetimeFrom"]["local"]).date(),
+                        "date_to": datetime.fromisoformat(r["coverage"]["datetimeTo"]["local"]).date()
                     }
 
                     rows.append(data)
@@ -214,14 +232,31 @@ def get_data_lvls_agg_loc(data_type: str, loc, aggregation: str, date_from: str,
                     "max": r["summary"]["max"],
                     "avg": r["summary"]["avg"],
                     "sd": r["summary"]["sd"],
-                    "date_from": r["coverage"]["datetimeFrom"]["local"],
-                    "date_to": r["coverage"]["datetimeTo"]["local"]
+                    "date_from": datetime.fromisoformat(r["coverage"]["datetimeFrom"]["local"]).date(),
+                    "date_to": datetime.fromisoformat(r["coverage"]["datetimeTo"]["local"]).date()
                 }
 
                 rows.append(data)
             time.sleep(1/60)
 
     return rows
+
+keys = ["location_id", "sensor_id", "parameter"]
+value_cols = ["value","q02","q25","median","q75","q98","min","max","avg","sd"]
+
+def add_missing_dates(g: pd.DataFrame) -> pd.DataFrame:
+    g = g.sort_values("date").set_index("date")
+
+    full = pd.date_range(g.index.min(), g.index.max(), freq="D")
+    g2 = g.reindex(full)
+
+    for c in keys + ["location_name", "parameter_units", "location_name", "location_id", "sensor_id"]:
+        if c in g2.columns:
+            g2[c] = g2[c].ffill().bfill()
+
+    g2 = g2.reset_index().rename(columns={"index": "date"})
+    g2["has_measurement"] = g2["avg"].notna()
+    return g2
 
 def Padonia():
     #Daily
@@ -238,13 +273,149 @@ def Padonia():
         df = pd.DataFrame(rows)
         df.to_excel(f"padonia_pm25_yearly_20{i:02d}.xlsx", index=False)
 
-#loc = get_specific_loc("Padonia")
-#rows = get_data_lvls_agg_loc(PM25, loc, DAILY, "2024-01-01", "2025-01-01")
-#print(pd.DataFrame(location_list))
+# PM2.5
+def pm25():
+    for i in range(16, 26):
+        rows = get_data_lvls_agg(PM25, DAILY, f"20{i:02d}-01-01", f"20{i+1:02d}-01-01")
+        df = pd.DataFrame(rows)
+        df["date"] = pd.to_datetime(df["date_from"]).dt.normalize()
+        df_full = df.groupby(keys, group_keys=False).apply(add_missing_dates, include_groups=False)
+        df_full.drop(columns=["date_from", "date_to"], inplace=True, errors="raise")
+        df.to_excel(f"pm25_daily_20{i:02d}.xlsx", index=False)
 
-for i in range(0, 26):
-    rows = get_data_lvls_agg(O3, DAILY, f"20{i:02d}-01-01", f"20{i+1:02d}-01-01")
-    df = pd.DataFrame(rows)
-    df.to_excel("o3day.xlsx", index=False)
-#Padonia()
+    for i in range(16,26):
+        rows = get_data_lvls_agg(PM25, YEARLY, f"20{i:02d}-01-01", f"20{i+1:02d}-01-01")
+        df = pd.DataFrame(rows)
+        df["date"] = pd.to_datetime(df["date_from"]).dt.normalize()
+        df_full = df.groupby(keys, group_keys=False).apply(add_missing_dates, include_groups=False)
+        df_full.drop(columns=["date_from", "date_to"], inplace=True, errors="raise")
+        df.to_excel(f"pm25_annually_20{i:02d}.xlsx", index=False)
+
+#CO
+def co():
+    for i in range(16, 26):
+        rows = get_data_lvls_agg(CO, DAILY, f"20{i:02d}-01-01", f"20{i+1:02d}-01-01")
+        df = pd.DataFrame(rows)
+        df["date"] = pd.to_datetime(df["date_from"]).dt.normalize()
+        df_full = df.groupby(keys, group_keys=False).apply(add_missing_dates, include_groups=False)
+        df_full.drop(columns=["date_from", "date_to"], inplace=True, errors="raise")
+        df.to_excel(f"co_daily_20{i:02d}.xlsx", index=False)
+
+    for i in range(16, 26):
+        rows = get_data_lvls_agg(CO, YEARLY, f"20{i:02d}-01-01", f"20{i+1:02d}-01-01")
+        df = pd.DataFrame(rows)
+        df["date"] = pd.to_datetime(df["date_from"]).dt.normalize()
+        df_full = df.groupby(keys, group_keys=False).apply(add_missing_dates, include_groups=False)
+        df_full.drop(columns=["date_from", "date_to"], inplace=True, errors="raise")
+        df.to_excel(f"co_annually_20{i:02d}.xlsx", index=False)
+
+#O3
+def o3():
+    for i in range(16, 26):
+        rows = get_data_lvls_agg(O3, DAILY, f"20{i:02d}-01-01", f"20{i+1:02d}-01-01")
+        df = pd.DataFrame(rows)
+        df["date"] = pd.to_datetime(df["date_from"]).dt.normalize()
+        df_full = df.groupby(keys, group_keys=False).apply(add_missing_dates, include_groups=False)
+        df_full.drop(columns=["date_from", "date_to"], inplace=True, errors="raise")
+        df.to_excel(f"o3_daily_20{i:02d}.xlsx", index=False)
+
+    for i in range(16, 26):
+        rows = get_data_lvls_agg(O3, YEARLY, f"20{i:02d}-01-01", f"20{i+1:02d}-01-01")
+        df = pd.DataFrame(rows)
+        df["date"] = pd.to_datetime(df["date_from"]).dt.normalize()
+        df_full = df.groupby(keys, group_keys=False).apply(add_missing_dates, include_groups=False)
+        df_full.drop(columns=["date_from", "date_to"], inplace=True, errors="raise")
+        df.to_excel(f"o3_annually_20{i:02d}.xlsx", index=False)
+
+#SO2
+def so2():
+    for i in range(16, 26):
+        rows = get_data_lvls_agg(SO2, DAILY, f"20{i:02d}-01-01", f"20{i+1:02d}-01-01")
+        df = pd.DataFrame(rows)
+        df["date"] = pd.to_datetime(df["date_from"]).dt.normalize()
+        df_full = df.groupby(keys, group_keys=False).apply(add_missing_dates, include_groups=False)
+        df_full.drop(columns=["date_from", "date_to"], inplace=True, errors="raise")
+        df.to_excel(f"so2_daily_20{i:02d}.xlsx", index=False)
+
+    for i in range(16, 26):
+        rows = get_data_lvls_agg(SO2, YEARLY, f"20{i:02d}-01-01", f"20{i+1:02d}-01-01")
+        df = pd.DataFrame(rows)
+        df["date"] = pd.to_datetime(df["date_from"]).dt.normalize()
+        df_full = df.groupby(keys, group_keys=False).apply(add_missing_dates, include_groups=False)
+        df_full.drop(columns=["date_from", "date_to"], inplace=True, errors="raise")
+        df.to_excel(f"so2_annually_20{i:02d}.xlsx", index=False)
+
+#NO2
+def no2():
+    for i in range(16, 26):
+        rows = get_data_lvls_agg(NO2, DAILY, f"20{i:02d}-01-01", f"20{i+1:02d}-01-01")
+        df = pd.DataFrame(rows)
+        df["date"] = pd.to_datetime(df["date_from"]).dt.normalize()
+        df_full = df.groupby(keys, group_keys=False).apply(add_missing_dates, include_groups=False)
+        df_full.drop(columns=["date_from", "date_to"], inplace=True, errors="raise")
+        df.to_excel(f"no2_daily_20{i:02d}.xlsx", index=False)
+
+    for i in range(16, 26):
+        rows = get_data_lvls_agg(NO2, YEARLY, f"20{i:02d}-01-01", f"20{i+1:02d}-01-01")
+        df = pd.DataFrame(rows)
+        df["date"] = pd.to_datetime(df["date_from"]).dt.normalize()
+        df_full = df.groupby(keys, group_keys=False).apply(add_missing_dates, include_groups=False)
+        df_full.drop(columns=["date_from", "date_to"], inplace=True, errors="raise")
+        df.to_excel(f"no2_annually_20{i:02d}.xlsx", index=False)
+
+#NOX
+def nox():
+    for i in range(16, 26):
+        rows = get_data_lvls_agg(NOX, DAILY, f"20{i:02d}-01-01", f"20{i+1:02d}-01-01")
+        df = pd.DataFrame(rows)
+        df["date"] = pd.to_datetime(df["date_from"]).dt.normalize()
+        df_full = df.groupby(keys, group_keys=False).apply(add_missing_dates, include_groups=False)
+        df_full.drop(columns=["date_from", "date_to"], inplace=True, errors="raise")
+        df.to_excel(f"nox_daily_20{i:02d}.xlsx", index=False)
+
+    for i in range(16, 26):
+        rows = get_data_lvls_agg(NOX, YEARLY, f"20{i:02d}-01-01", f"20{i+1:02d}-01-01")
+        df = pd.DataFrame(rows)
+        df["date"] = pd.to_datetime(df["date_from"]).dt.normalize()
+        df_full = df.groupby(keys, group_keys=False).apply(add_missing_dates, include_groups=False)
+        df_full.drop(columns=["date_from", "date_to"], inplace=True, errors="raise")
+        df.to_excel(f"nox_annually_20{i:02d}.xlsx", index=False)
+
+#PM1
+def pm1():
+    for i in range(16, 26):
+        rows = get_data_lvls_agg(PM1, DAILY, f"20{i:02d}-01-01", f"20{i+1:02d}-01-01")
+        df = pd.DataFrame(rows)
+        df["date"] = pd.to_datetime(df["date_from"]).dt.normalize()
+        df_full = df.groupby(keys, group_keys=False).apply(add_missing_dates, include_groups=False)
+        df_full.drop(columns=["date_from", "date_to"], inplace=True, errors="raise")
+        df.to_excel(f"pm1_daily_20{i:02d}.xlsx", index=False)
+
+    for i in range(16, 26):
+        rows = get_data_lvls_agg(PM1, YEARLY, f"20{i:02d}-01-01", f"20{i+1:02d}-01-01")
+        df = pd.DataFrame(rows)
+        df["date"] = pd.to_datetime(df["date_from"]).dt.normalize()
+        df_full = df.groupby(keys, group_keys=False).apply(add_missing_dates, include_groups=False)
+        df_full.drop(columns=["date_from", "date_to"], inplace=True, errors="raise")
+        df.to_excel(f"pm1_annually_20{i:02d}.xlsx", index=False)
+
+#PM10
+def pm10():
+    for i in range(16, 26):
+        rows = get_data_lvls_agg(PM10, DAILY, f"20{i:02d}-01-01", f"20{i+1:02d}-01-01")
+        df = pd.DataFrame(rows)
+        df["date"] = pd.to_datetime(df["date_from"]).dt.normalize()
+        df_full = df.groupby(keys, group_keys=False).apply(add_missing_dates, include_groups=False)
+        df_full.drop(columns=["date_from", "date_to"], inplace=True, errors="raise")
+        df.to_excel(f"pm10_daily_20{i:02d}.xlsx", index=False)
+
+    for i in range(16, 26):
+        rows = get_data_lvls_agg(PM10, YEARLY, f"20{i:02d}-01-01", f"20{i+1:02d}-01-01")
+        df = pd.DataFrame(rows)
+        df["date"] = pd.to_datetime(df["date_from"]).dt.normalize()
+        df_full = df.groupby(keys, group_keys=False).apply(add_missing_dates, include_groups=False)
+        df_full.drop(columns=["date_from", "date_to"], inplace=True, errors="raise")
+        df.to_excel(f"pm10_annually_20{i:02d}.xlsx", index=False)
+
+pm10()
 client.close()
