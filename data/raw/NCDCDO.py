@@ -23,6 +23,14 @@ BASE_URL = os.getenv("NCDC_CDO_URL")
 # url info
 headers = {"token": BASE_KEY}
 
+#Station ABV Constants
+MSCABV = "GHCND:USW00093784"
+BWIABV = "GHCND:USW00093721"
+
+#Station Constants
+BWI = "BALTIMORE WASHINGTON INTERNATIONAL AIRPORT"
+MSC = "MARYLAND SCIENCE CENTER"
+
 """
 Function requests datasets endpoint information
 """
@@ -48,17 +56,10 @@ def get_datasets() -> list:
         #sum +=1'
     return all_results
 
-json = get_datasets()
-print(pd.DataFrame(json))
-
-
 def get_dataset_ids():
     dataset_df = pd.DataFrame(get_datasets())
     id_list = dataset_df["id"].to_list()
     return id_list
-
-id_list = get_dataset_ids()
-print(id_list)
 
 """
 Function requests datacategories endpoint information
@@ -85,8 +86,6 @@ def get_datacategories() -> list:
         #sum +=1
     return all_results
 
-json = get_datacategories()
-print(pd.DataFrame(json))
 """
 Function requests datatypes endpoint information
 """
@@ -118,14 +117,6 @@ def get_datatypes_ids() -> list:
     df = pd.DataFrame(list1)
     list1 = df["id"].to_list()
     return list1
-
-results = get_datatypes()
-print(results)
-print(pd.DataFrame(results))
-excelfile = pd.DataFrame(results)
-excelfile.to_excel("datatypes.xlsx", sheet_name="Sheet1")
-list1 = get_datatypes_ids()
-print(pd.DataFrame(list1))
 
 """
 Function requests locationcategories endpoint information
@@ -177,10 +168,6 @@ def get_locations() -> list:
             break
     return all_results
 
-results = get_locations()
-df = pd.DataFrame(results)
-df.to_excel("stations.xlsx", sheet_name="station")
-
 def get_location_ids():
     location_df = pd.DataFrame(get_locations())
     id_list = location_df["id"].to_list()
@@ -190,11 +177,11 @@ def get_location_names():
     location_df = pd.DataFrame(get_locations())
     return location_df["name"].to_list()
     
-list2 = get_location_names()
-print(list2)
+#list2 = get_location_names()
+#print(list2)
 
-location_id_list = get_location_ids()
-print(location_id_list)
+#location_id_list = get_location_ids()
+#print(location_id_list)
 
 """
 Function requests stations endpoint information
@@ -222,9 +209,6 @@ def get_stations() -> list:
         if len(results) < limit:
             break
     return all_results
-
-results = get_stations()
-print(pd.DataFrame(results))
 
 """
 Function requests data endpoint information
@@ -259,20 +243,26 @@ def get_data(dataset_id: str, date: str, station_id: str, datatype_id: list[str]
         time.sleep(0.2)
     return all_results
 
-
-print(id_list)
-def get_data_year():
+def get_data_year(station_abv: str, station: str):
     i = 1999
-    while i <= 2024:
-        results = get_data("GHCND", str(i), "GHCND:USW00093784", ["TMAX", "TMIN", "PRCP"])
+    while i <= 2025:
+        results = get_data("GHCND", str(i), station_abv, ["TMAX", "TMIN", "PRCP"])
         #print(results)
         df = pd.DataFrame(results)
-        #print(df)
-        with pd.ExcelWriter("dailyAvgMarylandScienceCenter.xlsx", engine='openpyxl', mode='a', if_sheet_exists="replace") as writer:
+        df["station"] = station
+        with pd.ExcelWriter(f"{station_abv}.xlsx", engine='openpyxl', mode='a', if_sheet_exists="replace") as writer:
             # Add new sheet (e.g., 'Sheet3')
             df.to_excel(writer, sheet_name=str(i))
-
-        #df.to_excel(f"dailyAvgMarylandScienceCenter.xlsx", sheet_name=str(i))
         print("fetched year", i)
         i += 1
-get_data_year()
+
+results = get_locations()
+df = pd.DataFrame(results)
+df.to_excel("locations1.xlsx", sheet_name="station")
+
+results = get_stations()
+df = pd.DataFrame(results)
+df.to_excel("newstations.xlsx")
+
+get_data_year(MSCABV, MSC)
+get_data_year(BWIABV, BWI)
