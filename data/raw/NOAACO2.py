@@ -30,13 +30,40 @@ def get_daily_co2():
         names=["year", "month", "day", "decimal_date", "co2_ppm"]
     )
 
-    df["date"] = pd.to_datetime(dict(year=df["year"], month=df["month"], day=df["day"]))
+    # build date
+    df["date"] = pd.to_datetime(
+        dict(year=df["year"], month=df["month"], day=df["day"])
+    ).dt.normalize()
+
     df["unit"] = "ppm"
     df = df.rename(columns={"co2_ppm": "co2"})
 
     df.drop(columns=["year", "month", "day", "decimal_date"], inplace=True)
 
+    # ---- ADD MISSING DATES (daily) ----
+    df = df.sort_values("date").drop_duplicates(subset=["date"], keep="last")
+
+    full_range = pd.date_range(
+        start=df["date"].min(),
+        end=df["date"].max(),
+        freq="D"
+    )
+
+    df = (
+        df.set_index("date")
+          .reindex(full_range)
+          .rename_axis("date")
+          .reset_index()
+    )
+
+    # unit is constant, fill it
+    df["unit"] = df["unit"].ffill().bfill()
+
+    # mark whether measurement exists
+    df["has_measurement"] = df["co2"].notna()
+
     return df
+
 
 def get_annual_co2():
     df = pd.read_csv(
@@ -50,5 +77,3 @@ def get_annual_co2():
     )
     
     return df
-
-get_annual_co2()

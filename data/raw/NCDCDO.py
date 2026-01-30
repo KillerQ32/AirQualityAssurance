@@ -4,6 +4,7 @@ import os
 import time
 from openpyxl import load_workbook, Workbook
 from dotenv import load_dotenv
+from requests.exceptions import RequestException, HTTPError
 
 load_dotenv()
 
@@ -213,14 +214,22 @@ def get_stations() -> list:
 """
 Function requests data endpoint information
 """
-def get_data(dataset_id: str, date: str, station_id: str, datatype_id: list[str]) -> list:
+def get_data(
+    dataset_id: str,
+    date: str,
+    station_id: str,
+    datatype_id: list[str],
+    max_retries: int = 3,
+    retry_delay: float = 2.0,
+) -> list:
 
     offset = 1
     limit = 1000
     all_results = []
+
     while True:
         url = f"{BASE_URL}{data_endpoint}"
-        params1 = {
+        params = {
             "datasetid": dataset_id,
             "stationid": station_id,
             "startdate": f"{date}-01-01",
@@ -228,41 +237,74 @@ def get_data(dataset_id: str, date: str, station_id: str, datatype_id: list[str]
             "limit": limit,
             "offset": offset,
             "datatypeid": datatype_id,
-            "units": "standard"}
-        r = requests.get(url, headers=headers, params=params1)
-        r.raise_for_status()
-        data = r.json()
+            "units": "standard",
+        }
+
+        attempt = 0
+        while attempt < max_retries:
+            try:
+                r = requests.get(url, headers=headers, params=params, timeout=30)
+                r.raise_for_status()
+                data = r.json()
+                break  # success → exit retry loop
+            except (HTTPError, RequestException) as e:
+                attempt += 1
+                print(
+                    f"[WARN] NOAA request failed "
+                    f"(station={station_id}, year={date}, offset={offset}, attempt={attempt}/{max_retries}): {e}"
+                )
+
+                if attempt >= max_retries:
+                    print(
+                        f"[ERROR] Skipping this page after {max_retries} failed attempts "
+                        f"(station={station_id}, year={date}, offset={offset})"
+                    )
+                    return all_results  # ← do NOT crash entire script
+
+                time.sleep(retry_delay * attempt)  # exponential-ish backoff
+
         results = data.get("results", [])
         if not results:
             break
+
         all_results.extend(results)
-        print(f"Fetched {len(results)} data (offset={offset})")
+        print(f"Fetched {len(results)} rows (offset={offset})")
+
         offset += limit
+
         if len(results) < limit:
             break
-        time.sleep(0.2)
+
+        time.sleep(0.2)  # respect NOAA rate limits
+
     return all_results
 
 def get_data_year(station_abv: str, station: str):
+
+    all_results = []
+
     i = 1999
     while i <= 2025:
-        results = get_data("GHCND", str(i), station_abv, ["TMAX", "TMIN", "PRCP"])
-        #print(results)
-        df = pd.DataFrame(results)
-        df["station"] = station
-        with pd.ExcelWriter(f"{station_abv}.xlsx", engine='openpyxl', mode='a', if_sheet_exists="replace") as writer:
-            # Add new sheet (e.g., 'Sheet3')
-            df.to_excel(writer, sheet_name=str(i))
+        results = get_data("GHCND", str(i), station_abv, ["TMAX", "TMIN", "PRCP"])    
+        all_results.extend(results)
         print("fetched year", i)
         i += 1
+    
+    df = pd.DataFrame(all_results)
+    df["station"] = station
 
-results = get_locations()
-df = pd.DataFrame(results)
-df.to_excel("locations1.xlsx", sheet_name="station")
+    return df
 
-results = get_stations()
-df = pd.DataFrame(results)
-df.to_excel("newstations.xlsx")
+if __name__ == "__main__":
+    # your test calls here
 
-get_data_year(MSCABV, MSC)
-get_data_year(BWIABV, BWI)
+    results = get_locations()
+    df = pd.DataFrame(results)
+    df.to_excel("locations1.xlsx", sheet_name="station")
+
+    results = get_stations()
+    df = pd.DataFrame(results)
+    df.to_excel("newstations.xlsx")
+
+    get_data_year(MSCABV, MSC)
+    get_data_year(BWIABV, BWI)
