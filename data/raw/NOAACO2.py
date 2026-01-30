@@ -7,7 +7,7 @@ ANNUAL_URL = "https://gml.noaa.gov/webdata/ccgg/trends/co2/co2_annmean_mlo.csv"
 def get_monthly_co2():
     df = pd.read_csv(
         MONTHLY_URL,
-        comment="#",      # skips metadata lines
+        comment="#",
         skip_blank_lines=True
     )
 
@@ -30,7 +30,6 @@ def get_daily_co2():
         names=["year", "month", "day", "decimal_date", "co2_ppm"]
     )
 
-    # build date
     df["date"] = pd.to_datetime(
         dict(year=df["year"], month=df["month"], day=df["day"])
     ).dt.normalize()
@@ -40,7 +39,6 @@ def get_daily_co2():
 
     df.drop(columns=["year", "month", "day", "decimal_date"], inplace=True)
 
-    # ---- ADD MISSING DATES (daily) ----
     df = df.sort_values("date").drop_duplicates(subset=["date"], keep="last")
 
     full_range = pd.date_range(
@@ -56,10 +54,8 @@ def get_daily_co2():
           .reset_index()
     )
 
-    # unit is constant, fill it
     df["unit"] = df["unit"].ffill().bfill()
 
-    # mark whether measurement exists
     df["has_measurement"] = df["co2"].notna()
 
     return df

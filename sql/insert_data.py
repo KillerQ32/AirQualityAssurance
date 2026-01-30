@@ -1,18 +1,11 @@
 import pandas as pd
 from sqlalchemy import text
 
-# Your engine builder (adjust import to your actual engine file)
-# If you currently have `engine = sa.create_engine(...)` directly in sql/engine.py,
-# you can `from sql.engine import engine` instead.
 from sql.engine import engine
 
-# Adjust these imports to match where you store the files in your project.
-# If you literally have OPENAQ.py, NCDCDO.py, NOAACO2.py in the project root,
-# then import like: `import OPENAQ as openaq`
 import data.raw.OPENAQ as openaq
 import data.raw.NOAACO2 as co2
 import data.raw.NCDCDO as ncdc
-
 
 PUBLIC_SCHEMA = "public"
 
@@ -31,7 +24,6 @@ def create_and_load(df: pd.DataFrame, table_name: str, engine, if_exists: str = 
     """
     df = normalize_columns(df)
 
-    # create empty table (schema only)
     df.head(0).to_sql(
         table_name,
         engine,
@@ -40,7 +32,6 @@ def create_and_load(df: pd.DataFrame, table_name: str, engine, if_exists: str = 
         index=False,
     )
 
-    # load rows
     df.to_sql(
         table_name,
         engine,
@@ -68,12 +59,11 @@ def load_openaq(engine):
 
     daily_frames = []
     for fn in pollutant_fns:
-        df_daily, _ = fn()     # ignore yearly
+        df_daily, _ = fn()
         daily_frames.append(df_daily)
 
     df_all = pd.concat(daily_frames, ignore_index=True)
 
-    # optional: ensure date type is consistent
     df_all["date"] = pd.to_datetime(df_all["date"]).dt.normalize()
 
     create_and_load(df_all, "openaq_daily", engine, if_exists="replace")
@@ -98,17 +88,58 @@ def load_ncdc_ghcn(engine):
     Loads NOAA NCDC CDO daily data (GHCND) for your two stations from NCDCDO.py.
     Your get_data_year(...) already adds a 'station' name column.
     """
-    # station constants live in your NCDCDO.py
+
     df_msc = ncdc.get_data_year(ncdc.MSCABV, ncdc.MSC)
     df_bwi = ncdc.get_data_year(ncdc.BWIABV, ncdc.BWI)
 
     df_all = pd.concat([df_msc, df_bwi], ignore_index=True)
 
-    # optional: make sure date is a real datetime
     if "date" in df_all.columns:
         df_all["date"] = pd.to_datetime(df_all["date"], errors="coerce")
 
     create_and_load(df_all, "noaa_ncdc_ghcnd_daily", engine, if_exists="replace")
+
+def load_openaq_locations():
+    rows = openaq.get_location_details()
+    df = pd.DataFrame(rows)
+
+    df.to_sql(
+        "openaq_locations",
+        engine,
+        schema="public",
+        if_exists="replace",
+        index=False
+    )
+
+    print(f"Loaded {len(df)} OpenAQ locations")
+
+def load_openaq_sensors():
+    rows = openaq.get_sensor_details()
+    df = pd.DataFrame(rows)
+
+    df.to_sql(
+        "openaq_sensors",
+        engine,
+        schema="public",
+        if_exists="replace",
+        index=False
+    )
+
+    print(f"Loaded {len(df)} OpenAQ sensors")
+
+def load_ncdc_stations():
+    rows = ncdc.get_stations()
+    df = pd.DataFrame(rows)
+
+    df.to_sql(
+        "ncdc_stations",
+        engine,
+        schema="public",
+        if_exists="replace",
+        index=False
+    )
+
+    print(f"Loaded {len(df)} NCDC stations")
 
 
 def main():
@@ -120,8 +151,11 @@ def main():
 
     # Load everything
     load_openaq(engine)
-    #load_noaa_co2(engine)
-    #load_ncdc_ghcn(engine)
+    load_openaq_locations()
+    load_openaq_sensors()
+    load_ncdc_stations()
+    load_noaa_co2(engine)
+    load_ncdc_ghcn(engine)
 
     print("All loads complete.")
 

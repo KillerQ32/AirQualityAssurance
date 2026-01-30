@@ -40,7 +40,6 @@ def get_datasets() -> list:
     offset = 1
     limit = 1000
     all_results = []
-    #sum = 0
     params = {"limit": 1000, "offset": 1}
     while True:
         url = f"{BASE_URL}{datasets}"
@@ -54,7 +53,6 @@ def get_datasets() -> list:
         all_results.extend(results)
         print(f"Fetched {len(results)} locations (offset={offset})")
         offset += limit
-        #sum +=1'
     return all_results
 
 def get_dataset_ids():
@@ -70,7 +68,6 @@ def get_datacategories() -> list:
     offset = 1
     limit = 1000
     all_results = []
-    #sum = 0
     params = {"limit": 1000, "offset": 1}
     while True:
         url = f"{BASE_URL}{datacategories}"
@@ -84,7 +81,6 @@ def get_datacategories() -> list:
         all_results.extend(results)
         print(f"Fetched {len(results)} locations (offset={offset})")
         offset += limit
-        #sum +=1
     return all_results
 
 """
@@ -95,7 +91,6 @@ def get_datatypes() -> list:
     offset = 1
     limit = 1000
     all_results = []
-    #sum = 0
     params = {"limit": 1000, "offset": 1}
     while True:
         url = f"{BASE_URL}{datatypes}"
@@ -110,7 +105,6 @@ def get_datatypes() -> list:
         print(f"Fetched {len(results)} locations (offset={offset})")
         offset += limit
         time.sleep(1)
-        #sum +=1
     return all_results
 
 def get_datatypes_ids() -> list:
@@ -127,7 +121,6 @@ def get_locationcategories() -> list:
     offset = 1
     limit = 1000
     all_results = []
-    #sum = 0
     params = {"limit": 1000, "offset": 1}
     while True:
         url = f"{BASE_URL}{locationcategories}"
@@ -141,7 +134,6 @@ def get_locationcategories() -> list:
         all_results.extend(results)
         print(f"Fetched {len(results)} locations (offset={offset})")
         offset += limit
-        #sum +=1
     return all_results
 
 """
@@ -177,12 +169,6 @@ def get_location_ids():
 def get_location_names():
     location_df = pd.DataFrame(get_locations())
     return location_df["name"].to_list()
-    
-#list2 = get_location_names()
-#print(list2)
-
-#location_id_list = get_location_ids()
-#print(location_id_list)
 
 """
 Function requests stations endpoint information
@@ -192,7 +178,6 @@ def get_stations() -> list:
     offset = 1
     limit = 1000
     all_results = []
-    #sum = 0
     while True:
         url = f"{BASE_URL}{stations}"
         params = {"limit": 1000, "offset": 1, "locationid": "CITY:US240002", "datasetid": "GSOY"}
@@ -206,7 +191,6 @@ def get_stations() -> list:
         print(f"Fetched {len(results)} stations (offset={offset})")
         offset += limit
         time.sleep(.3)
-        #sum +=1
         if len(results) < limit:
             break
     return all_results
@@ -246,7 +230,7 @@ def get_data(
                 r = requests.get(url, headers=headers, params=params, timeout=30)
                 r.raise_for_status()
                 data = r.json()
-                break  # success → exit retry loop
+                break 
             except (HTTPError, RequestException) as e:
                 attempt += 1
                 print(
@@ -259,9 +243,9 @@ def get_data(
                         f"[ERROR] Skipping this page after {max_retries} failed attempts "
                         f"(station={station_id}, year={date}, offset={offset})"
                     )
-                    return all_results  # ← do NOT crash entire script
+                    return all_results
 
-                time.sleep(retry_delay * attempt)  # exponential-ish backoff
+                time.sleep(retry_delay * attempt)
 
         results = data.get("results", [])
         if not results:
@@ -275,7 +259,7 @@ def get_data(
         if len(results) < limit:
             break
 
-        time.sleep(0.2)  # respect NOAA rate limits
+        time.sleep(0.2)
 
     return all_results
 
@@ -296,7 +280,6 @@ def get_data_year(station_abv: str, station: str):
     return df
 
 if __name__ == "__main__":
-    # your test calls here
 
     results = get_locations()
     df = pd.DataFrame(results)
