@@ -72,4 +72,6 @@ def get_annual_co2():
         df["year"].astype(str)
     )
     
+    df["unit"] = "ppm"
+
     return df

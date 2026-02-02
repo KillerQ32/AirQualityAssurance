@@ -1,5 +1,6 @@
 import requests
 import pandas as pd
+import numpy as np
 import os
 import time
 from openpyxl import load_workbook, Workbook
@@ -276,7 +277,7 @@ def get_data_year(station_abv: str, station: str):
     
     df = pd.DataFrame(all_results)
     df["station"] = station
-
+    df["unit"] = np.where(df["datatype"] == "PRCP", "mm", "Celsius (°C)")
     return df
 
 if __name__ == "__main__":
